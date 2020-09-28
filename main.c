@@ -12,7 +12,7 @@
 
 char* getFirstWord(char* str);
 char** split(char* str);
-char* concatenate(char* A, char* B);  // for directories
+char* concatenate(char* A, char* B, char* res); //for directories; concat A and R into res
 
 void push(char* path);
 char* pop();
@@ -56,13 +56,11 @@ int main(int argc, char *argv[]) {
 			    closedir(d);
 			  }
 		}
-//		else if (strcmp ("enter", getFirstWord(command)) == 0 ){
-//			printf("enter");
-//		}
+
 		else if (strcmp ("enter", comm) == 0 ){
 			char* dirName = command[1];
-			char* path = concatenate(currentDirectory, dirName);
-			int chdirResult =  chdir(path);
+			char path[256] = {'\0'};
+			concatenate(currentDirectory, dirName, path);			int chdirResult =  chdir(path);
 			if (chdir < 0)
 				printf("Failed to enter directory %s", dirName);
 			else{
@@ -89,8 +87,13 @@ int main(int argc, char *argv[]) {
 		else if (strcmp ("copy", comm) == 0 ){
 		}
 		else if (strcmp ("delete", comm) == 0 ){
-			char* path = concatenate(currentDirectory, command[1]);
-		//	remove_directory(path);
+			char path [256]= {'\0'};
+			concatenate(currentDirectory, command[1], path);
+			
+			if (isFile(path))
+				unlink(path);
+			else
+				remove_directory(path);
 		}
 		
 		else if (strcmp ("stop", comm) == 0 )
@@ -159,20 +162,64 @@ char** split(char* str){
 	}
 	return words;
 }
-char* concatenate(char* A, char* B){
-	char str [256]= {'\0'};
-	//str = (char*)malloc(sizeof(A) + sizeof(B)-3*sizeof(char));
-	strcpy(str, A);
-	strcat(str, "\\");
-	strcat(str, B);
-	return str;
+char* concatenate(char* A, char* B, char* res){
+	strcpy(res, A);
+	strcat(res, "\\");
+	strcat(res, B);
+	return res;
 }
+
+int isFile(const char *path)
+{
+    struct stat pathStat;
+    stat(path, &pathStat);
+    return S_ISREG(pathStat.st_mode);
+}
+
+int remove_directory(const char *path) {
+   DIR *d = opendir(path);
+   size_t path_len = strlen(path);
+   int r = -1;
+
+   if (d) {
+      struct dirent *p;
+
+      r = 0;
+      while (!r && (p=readdir(d))) {
+          int r2 = -1;
+          char *buf;
+          size_t len;
+
+          /* Skip the names "." and ".." as we don't want to recurse on them. */
+          if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, ".."))
+             continue;
+
+          len = path_len + strlen(p->d_name) + 2; 
+          buf = malloc(len);
+
+          if (buf) {
+             struct stat statbuf;
+
+             snprintf(buf, len, "%s/%s", path, p->d_name);
+             if (!stat(buf, &statbuf)) {
+                if (S_ISDIR(statbuf.st_mode))
+                   r2 = remove_directory(buf);
+                else
+                   r2 = unlink(buf);
+             }
+             free(buf);
+          }
+          r = r2;
+      }
+      closedir(d);
+   }
 
    if (!r)
       r = rmdir(path);
 
    return r;
 }
+
 
 
 // Stack //
