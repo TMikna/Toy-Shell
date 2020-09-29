@@ -13,6 +13,8 @@
 char* getFirstWord(char* str);
 char** split(char* str);
 char* concatenate(char* A, char* B, char* res); //for directories; concat A and R into res
+int copyFile (char* src_path, char* dst_path );
+int copyDirectory(char *from, char *to);
 
 void push(char* path);
 char* pop();
@@ -85,6 +87,16 @@ int main(int argc, char *argv[]) {
 		}
 		
 		else if (strcmp ("copy", comm) == 0 ){
+		    char srcPath [256]= {'\0'};
+			char dstPath [256]= {'\0'};
+
+			concatenate(currentDirectory, command[1], srcPath);
+			concatenate(currentDirectory, command[2], dstPath);
+			
+			if (isFile(srcPath))
+				copyFile(srcPath, dstPath);
+			else
+				copyDirectory(srcPath, dstPath);
 		}
 		else if (strcmp ("delete", comm) == 0 ){
 			char path [256]= {'\0'};
@@ -174,6 +186,91 @@ int isFile(const char *path)
     struct stat pathStat;
     stat(path, &pathStat);
     return S_ISREG(pathStat.st_mode);
+}
+
+int copyDirectory(char *from, char *to) {
+	// TODO Handle error (failed because of already created, copy to non-existing folder or something else?
+	mkdir(to); // enables writing copy a b/c (a contents to be copient into c, c is not created in andvance)
+	
+    DIR *d = opendir(from);
+    size_t PathFromLen = strlen(from);
+    size_t PathToLen = strlen(to);
+
+    int r = -1;
+
+    if (d) {
+	    struct dirent *p;
+
+		r = 0;
+    	while (!r && (p=readdir(d))) {
+            int r2 = -1;
+            char *bufFrom;
+            size_t lenFrom;
+            char *bufTo;
+            size_t lenTo;
+
+          /* Skip the names "." and ".." as we don't want to recurse on them. */
+            if (!strcmp(p->d_name, ".") || !strcmp(p->d_name, ".."))
+                continue;
+
+            lenFrom = PathFromLen + strlen(p->d_name) + 2; 
+            bufFrom = malloc(lenFrom);
+              
+            lenTo = PathToLen + strlen(p->d_name) + 2; 
+            bufTo = malloc(lenTo);
+        
+            if (bufFrom && bufTo) {
+                struct stat statbuf;
+
+                snprintf(bufFrom, lenFrom, "%s\\%s", from, p->d_name);
+                snprintf(bufTo, lenTo, "%s\\%s", to, p->d_name);
+    
+                if (!stat(bufFrom, &statbuf)) {
+                    if (S_ISDIR(statbuf.st_mode)){
+                    	r2 = mkdir(bufTo);
+                        r2 = copyDirectory(bufFrom, bufTo);
+    				}
+                    else
+                        r2 = copyFile(bufFrom, bufTo);
+                }
+                free(bufFrom);
+                free(bufTo);
+            }
+            r = r2;
+        }
+        closedir(d);
+   }
+   return r;
+}
+
+
+
+int copyFile (char* src_path, char* dst_path ){
+	int src_fd, dst_fd, n, err;
+    char buffer[4096];
+//	char* src_path = pFrom;
+//	char* dst_path = pTo;
+
+    src_fd = open(src_path, O_RDONLY);
+    dst_fd = open(dst_path, O_WRONLY | O_CREAT | O_EXCL, 0666);
+
+    while (1) {
+        err = read(src_fd, buffer, 4096);
+        if (err == -1) {
+            printf("Error reading file %s\n", src_path);
+            return -1;
+        }
+        n = err;
+
+        if (n == 0) break;
+
+        err = write(dst_fd, buffer, n);
+        if (err == -1) {
+            printf("Error writing to file %s\n", dst_path);
+            return -1;
+        }
+	}
+	return 0;
 }
 
 int remove_directory(const char *path) {
