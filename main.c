@@ -12,15 +12,16 @@
 
 char* getFirstWord(char* str);
 char** split(char* str);
-char* concatenate(char* A, char* B, char* res); //for directories; concat A and R into res
+char* concatenate(char* A, char* B, char* res); //for directories; concat A and R into res, if B is absolute path (C:... - only copy it to res)
 int copyFile (char* src_path, char* dst_path );
 int copyDirectory(char *from, char *to);
+int createPath(char* path, char* currentDir);
 
 void push(char* path);
 char* pop();
 
 const int MAXWORDS = 5; // maximum accepted amount of words
-const int MAXWORDLENGTH = 40;       // maximum length of each word
+const int MAXWORDLENGTH = 100;       // maximum length of each word
 const int STACKSIZE = 100;
 
 //char** stack = (char**)malloc(STACKSIZE * sizeof(char*));
@@ -97,6 +98,7 @@ int main(int argc, char *argv[]) {
 				copyFile(srcPath, dstPath);
 			else
 				copyDirectory(srcPath, dstPath);
+				
 		}
 		else if (strcmp ("delete", comm) == 0 ){
 			char path [256]= {'\0'};
@@ -108,17 +110,21 @@ int main(int argc, char *argv[]) {
 				remove_directory(path);
 		}
 		
-		else if (strcmp ("stop", comm) == 0 )
-			x = 0;
-		
+		else if (strcmp ("create", comm) == 0 ){
+		    createPath(command[1], currentDirectory);
+		    int file = open(command[1], O_WRONLY | O_CREAT | O_EXCL, 0666);
+		    int n = strlen(command[2]) + 2;
+            int sucess = write(file, command[2], n);
+            if (!sucess)
+                printf("failed to create a file %s", command[1]);
+        }
+			
 		else if (strcmp ("stop", comm) == 0 )
 			x = 0;
 			
 		else 
 			printf("Wrong command");
 				
-
-
 	}
 
 	return 0;
@@ -141,8 +147,6 @@ char* getFirstWord(char* str){
 }
 
 char** split(char* str){	
-     
-	
 	int len = sizeof(str)/sizeof(str[0]);
 	char **words;
 	int i = 0;
@@ -151,7 +155,6 @@ char** split(char* str){
     for (i=0; i<MAXWORDS; i++) 
          words[i] = (char*)malloc(MAXWORDLENGTH * sizeof(char)); 
 		
-	
 	i = 0; // original string
 	int k = 0; // substr
 	int j = 0; // will be j-th word
@@ -175,10 +178,59 @@ char** split(char* str){
 	return words;
 }
 char* concatenate(char* A, char* B, char* res){
-	strcpy(res, A);
-	strcat(res, "\\");
-	strcat(res, B);
-	return res;
+    if (B[1] == ':') {
+        //B is absolute (full) path
+        strcpy(res, A);
+        return res;
+    }
+    else{ 
+        //B is path furher from current ditectory
+    	strcpy(res, A);
+    	strcat(res, "\\");
+    	strcat(res, B);
+    	return res;
+	}
+}
+
+// cant create a directory if it's name include a dot
+int createPath(char* path, char* currentDir){
+    if (path[1] == ':') {
+        //path is absolute, I do not intend to create a disc (C:\..)
+        return -1;
+    }
+    //B is path furher from current ditectory
+    char* cDir = currentDir; 
+    int i = 0;
+    int a = 1;
+
+    while (a)
+        {
+            int j = 0;
+            char dir [256] = {'\0'}; 
+            while (path[i] != '\\' && path[i] != '/'){   // somtimes path is written with '/' ?
+                if (path[i] == '.'){
+                    break;
+                }
+                            
+
+                dir[j] = path[i];
+                i++;
+                j++;
+            }
+
+            if (path[i] == '.')
+                break;
+            else{
+                char temp [256] = {'\0'}; 
+                concatenate(cDir, dir, temp);
+                int err = mkdir(temp);
+                if (err != 0)
+                printf("failed to create directory %s. It is posssibly alredy existing \n", temp);
+                strcpy(cDir, temp);
+                i++;
+            }
+        }
+    return 0;
 }
 
 int isFile(const char *path)
