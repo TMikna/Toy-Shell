@@ -16,6 +16,7 @@ char* concatenate(char* A, char* B, char* res); //for directories; concat A and 
 int copyFile (char* src_path, char* dst_path );
 int copyDirectory(char *from, char *to);
 int createPath(char* path, char* currentDir);
+void print(char* message, char* cdir);
 
 void push(char* path);
 char* pop();
@@ -43,47 +44,55 @@ int main(int argc, char *argv[]) {
 		gets(commandStr);       // get the command
 		char** command = split(commandStr); // split command by words (split by space)
 		if (command == NULL){
-			printf("Wrong command (make sure it does not contain more than %d words and/or more than %d characters)", MAXWORDS, MAXWORDLENGTH);
+			printf("Wrong command (make sure it does not contain more than %d words and/or more than %d characters per word)", MAXWORDS, MAXWORDLENGTH);
 			continue;
 		}
 		char* comm = command[0]; // first world of the command; main command without parameters
 		
 		if(strcmp ("list", comm) == 0 ){
-			  DIR *d;
-			  struct dirent *dir;
-			  d = opendir(currentDirectory);
-			  if (d) {
+			DIR *d;
+		    struct dirent *dir;
+		    d = opendir(currentDirectory);
+	        if (d) {
 			    while ((dir = readdir(d)) != NULL) {
-			      printf("%s\n", dir->d_name);
+		            printf("%s\n", dir->d_name);
 			    }
 			    closedir(d);
-			  }
+			}
+			print("", currentDirectory);
+			  
 		}
 
 		else if (strcmp ("enter", comm) == 0 ){
 			char* dirName = command[1];
 			char path[256] = {'\0'};
-			concatenate(currentDirectory, dirName, path);			int chdirResult =  chdir(path);
-			if (chdir < 0)
-				printf("Failed to enter directory %s", dirName);
+			concatenate(currentDirectory, dirName, path);			
+            int chdirResult =  chdir(path);
+			if (chdirResult < 0){
+				printf("Failed to enter directory %s\n", dirName);
+				print("", currentDirectory);
+            }
 			else{
 				push(currentDirectory);
 				currentDirectory = getcwd(NULL, 0);
-				printf(getcwd(NULL, 0));
+				print("", currentDirectory);
 			}
 		}
 			
 		else if (strcmp ("leave", comm) == 0 ){
 			char* path = pop();
 			if (path == NULL){
-				printf("You can't go back any more'");
+				print("You can't go back any more", currentDirectory);
+				continue;
 			}
 			int chdirResult =  chdir(path);
-			if (chdir < 0)
-				printf("Failed to go back to directory %s", path);
+			if (chdirResult < 0){
+			    printf("Failed to go back to directory %s\n", path);
+			    print("", currentDirectory);
+            }
 			else{
 				currentDirectory = getcwd(NULL, 0);
-				printf(getcwd(NULL, 0));
+				print("", currentDirectory);
 			}
 		}
 		
@@ -94,20 +103,33 @@ int main(int argc, char *argv[]) {
 			concatenate(currentDirectory, command[1], srcPath);
 			concatenate(currentDirectory, command[2], dstPath);
 			
+			int err;
+			
 			if (isFile(srcPath))
-				copyFile(srcPath, dstPath);
+				err = copyFile(srcPath, dstPath);
 			else
-				copyDirectory(srcPath, dstPath);
+				err = copyDirectory(srcPath, dstPath);
+            if (!err)
+                print("File or directory copied sucessfully", currentDirectory);
+            else
+                print("Copying failed", currentDirectory);
 				
 		}
 		else if (strcmp ("delete", comm) == 0 ){
 			char path [256]= {'\0'};
 			concatenate(currentDirectory, command[1], path);
 			
+			int err;
+			
 			if (isFile(path))
-				unlink(path);
+				err = unlink(path);
 			else
-				remove_directory(path);
+				err = remove_directory(path);
+				
+			if (!err)
+                print("File or directory deleted sucessfully", currentDirectory);
+            else
+                print("Deleting failed. Make sure file or directory name is correct", currentDirectory);
 		}
 		
 		else if (strcmp ("create", comm) == 0 ){
@@ -115,15 +137,25 @@ int main(int argc, char *argv[]) {
 		    int file = open(command[1], O_WRONLY | O_CREAT | O_EXCL, 0666);
 		    int n = strlen(command[2]) + 2;
             int sucess = write(file, command[2], n);
-            if (!sucess)
-                printf("failed to create a file %s", command[1]);
+            if (!sucess){
+                printf("Failed to create a file %s", command[1]);
+                print("", currentDirectory);
+            }
+            else{
+                printf("%s created sucessfully\n", command[1]);
+                print("", currentDirectory);
+            }
+                
         }
 			
 		else if (strcmp ("stop", comm) == 0 )
-			x = 0;
+		{
+		    printf("Exiting...");
+		    x = 0;
+        }
 			
 		else 
-			printf("Wrong command");
+			print("Wrong command", currentDirectory);
 				
 	}
 
@@ -145,7 +177,12 @@ char* getFirstWord(char* str){
 		}
 	return subStr;
 }
-
+void print(char* message, char* cdir){
+    if (strlen(message)>0)
+        printf("%s\n%s>", message, cdir);
+    else
+        printf("%s>", cdir);
+}
 char** split(char* str){	
 	int len = sizeof(str)/sizeof(str[0]);
 	char **words;
@@ -300,8 +337,6 @@ int copyDirectory(char *from, char *to) {
 int copyFile (char* src_path, char* dst_path ){
 	int src_fd, dst_fd, n, err;
     char buffer[4096];
-//	char* src_path = pFrom;
-//	char* dst_path = pTo;
 
     src_fd = open(src_path, O_RDONLY);
     dst_fd = open(dst_path, O_WRONLY | O_CREAT | O_EXCL, 0666);
