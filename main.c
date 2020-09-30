@@ -25,30 +25,22 @@ const int MAXWORDS = 5; // maximum accepted amount of words
 const int MAXWORDLENGTH = 100;       // maximum length of each word
 const int STACKSIZE = 100;
 
-//char** stack = (char**)malloc(STACKSIZE * sizeof(char*));
 char* stack[100] = {NULL};
 int stackPointer = 0;
 
 int main(int argc, char *argv[]) {
 	
-	
-	
+
 	char *currentDirectory = getcwd(NULL, 0);
 	printf(currentDirectory);
 	printf(">");
 	
+		int x = 1;
 	
-	char commandStr[MAXWORDS*MAXWORDLENGTH];       // command as one string
-	int x = 1;
-	while(x){
-		gets(commandStr);       // get the command
-		char** command = split(commandStr); // split command by words (split by space)
-		if (command == NULL){
-			printf("Wrong command (make sure it does not contain more than %d words and/or more than %d characters per word)", MAXWORDS, MAXWORDLENGTH);
-			continue;
-		}
-		char* comm = command[0]; // first world of the command; main command without parameters
-		
+	char comm[MAXWORDLENGTH];
+	while(x){	
+		scanf("%s", comm);
+
 		if(strcmp ("list", comm) == 0 ){
 			DIR *d;
 		    struct dirent *dir;
@@ -60,11 +52,11 @@ int main(int argc, char *argv[]) {
 			    closedir(d);
 			}
 			print("", currentDirectory);
-			  
 		}
 
 		else if (strcmp ("enter", comm) == 0 ){
-			char* dirName = command[1];
+			char dirName[MAXWORDLENGTH];
+			scanf("%s", dirName);
 			char path[256] = {'\0'};
 			concatenate(currentDirectory, dirName, path);			
             int chdirResult =  chdir(path);
@@ -99,9 +91,14 @@ int main(int argc, char *argv[]) {
 		else if (strcmp ("copy", comm) == 0 ){
 		    char srcPath [256]= {'\0'};
 			char dstPath [256]= {'\0'};
+			
+			char src[MAXWORDLENGTH];
+			char dst[MAXWORDLENGTH];
+			scanf("%s", src);
+			scanf("%s", dst);
 
-			concatenate(currentDirectory, command[1], srcPath);
-			concatenate(currentDirectory, command[2], dstPath);
+			concatenate(currentDirectory, src, srcPath);
+			concatenate(currentDirectory, dst, dstPath);
 			
 			int err;
 			
@@ -117,7 +114,9 @@ int main(int argc, char *argv[]) {
 		}
 		else if (strcmp ("delete", comm) == 0 ){
 			char path [256]= {'\0'};
-			concatenate(currentDirectory, command[1], path);
+			char target[MAXWORDLENGTH];
+			scanf("%s", target);
+			concatenate(currentDirectory, target, path);
 			
 			int err;
 			
@@ -133,16 +132,21 @@ int main(int argc, char *argv[]) {
 		}
 		
 		else if (strcmp ("create", comm) == 0 ){
-		    createPath(command[1], currentDirectory);
-		    int file = open(command[1], O_WRONLY | O_CREAT | O_EXCL, 0666);
-		    int n = strlen(command[2]) + 2;
-            int sucess = write(file, command[2], n);
+		    char fname[256] = {'\0'};               //filename
+			scanf("%s", fname);
+		    createPath(fname, currentDirectory);
+		    char buff[4096];
+		    gets(buff);
+		    
+		    int file = open(fname, O_WRONLY | O_CREAT | O_EXCL, 0666);
+		    int n = strlen(buff) + 2;
+            int sucess = write(file, buff, n);
             if (!sucess){
-                printf("Failed to create a file %s", command[1]);
+                printf("Failed to create a file %s", fname);
                 print("", currentDirectory);
             }
             else{
-                printf("%s created sucessfully\n", command[1]);
+                printf("%s created sucessfully\n", fname);
                 print("", currentDirectory);
             }
                 
@@ -156,64 +160,16 @@ int main(int argc, char *argv[]) {
 			
 		else 
 			print("Wrong command", currentDirectory);
-				
+		
+		// read and discard any excess charactrs
+        char buff[4096];		
+        gets(buff);
 	}
 
 	return 0;
 }
 
-// Unused
-char* getFirstWord(char* str){
-	int len = sizeof(str)/sizeof(str[0]);
-	char subStr[len];
-	int i = 0;
-	for (i = 0; i<len; i++)
-		if (str[i] != '\0'){
-			subStr[i] = str[i];
-		}
-		else{
-			subStr[i] = '\0';
-			break;
-		}
-	return subStr;
-}
-void print(char* message, char* cdir){
-    if (strlen(message)>0)
-        printf("%s\n%s>", message, cdir);
-    else
-        printf("%s>", cdir);
-}
-char** split(char* str){	
-	int len = sizeof(str)/sizeof(str[0]);
-	char **words;
-	int i = 0;
-	
-	words = (char**)malloc(MAXWORDS * sizeof(char*)); 
-    for (i=0; i<MAXWORDS; i++) 
-         words[i] = (char*)malloc(MAXWORDLENGTH * sizeof(char)); 
-		
-	i = 0; // original string
-	int k = 0; // substr
-	int j = 0; // will be j-th word
-	while (str[i] != '\0')
-	{
-		while (str[i] == ' ')   // skip spaces (othervise next word will include leading spaces
-			i++;
-		while (str[i] != ' ' && str[i] != '\0')
-			{
-				words[j][k] = str[i];
-				k++;
-				i++;
-			}
 
-		words[j][k] = '\0';  // end of line
-		k = 0;
-		j += 1;
-		if (j >= MAXWORDS)
-		return NULL;
-	}
-	return words;
-}
 char* concatenate(char* A, char* B, char* res){
     if (B[1] == ':') {
         //B is absolute (full) path
@@ -262,12 +218,19 @@ int createPath(char* path, char* currentDir){
                 concatenate(cDir, dir, temp);
                 int err = mkdir(temp);
                 if (err != 0)
-                printf("failed to create directory %s. It is posssibly alredy existing \n", temp);
+                printf("Failed to create new directory %s If it is already existing, files will be written inside of it. \n", temp);
                 strcpy(cDir, temp);
                 i++;
             }
         }
     return 0;
+}
+
+void print(char* message, char* cdir){
+    if (strlen(message)>0)
+        printf("%s\n%s>", message, cdir);
+    else
+        printf("%s>", cdir);
 }
 
 int isFile(const char *path)
@@ -331,8 +294,6 @@ int copyDirectory(char *from, char *to) {
    }
    return r;
 }
-
-
 
 int copyFile (char* src_path, char* dst_path ){
 	int src_fd, dst_fd, n, err;
@@ -405,7 +366,6 @@ int remove_directory(const char *path) {
 }
 
 
-
 // Stack //
 void push(char* path){
 	stack[stackPointer%STACKSIZE] = path;    
@@ -420,5 +380,55 @@ char* pop(){
 	else{
 		return 0;
 	}
+}
+
+
+// Unused 
+char* getFirstWord(char* str){
+	int len = sizeof(str)/sizeof(str[0]);
+	char subStr[len];
+	int i = 0;
+	for (i = 0; i<len; i++)
+		if (str[i] != '\0'){
+			subStr[i] = str[i];
+		}
+		else{
+			subStr[i] = '\0';
+			break;
+		}
+	return subStr;
+}
+
+// Unused after remaking reading from stdin
+char** split(char* str){	
+	int len = sizeof(str)/sizeof(str[0]);
+	char **words;
+	int i = 0;
+	
+	words = (char**)malloc(MAXWORDS * sizeof(char*)); 
+    for (i=0; i<MAXWORDS; i++) 
+         words[i] = (char*)malloc(MAXWORDLENGTH * sizeof(char)); 
+		
+	i = 0; // original string
+	int k = 0; // substr
+	int j = 0; // will be j-th word
+	while (str[i] != '\0')
+	{
+		while (str[i] == ' ')   // skip spaces (othervise next word will include leading spaces
+			i++;
+		while (str[i] != ' ' && str[i] != '\0')
+			{
+				words[j][k] = str[i];
+				k++;
+				i++;
+			}
+
+		words[j][k] = '\0';  // end of line
+		k = 0;
+		j += 1;
+		if (j >= MAXWORDS)
+		return NULL;
+	}
+	return words;
 }
 
